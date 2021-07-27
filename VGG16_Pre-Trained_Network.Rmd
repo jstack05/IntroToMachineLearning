@@ -1,0 +1,15 @@
+---
+title: "VGG16 Pre-Trained Network"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(keras)
+#Begin with VGG16 Model
+conv_base <- application_vgg16( 
+  weights = "imagenet", 
+  include_top = FALSE, 
+  #This could be important, if input_shape is not stated, the network will be able to process inputs of any size
+  input_shape = c(150, 150, 3)
+)
+```

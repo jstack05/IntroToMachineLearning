@@ -1,0 +1,108 @@
+---
+title: "IMDB NN"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(keras)
+#Loading in variables using the %<-% operator more efficient with pre-loaded data
+imdb <- dataset_imdb(num_words = 10000)
+c(c(train_data, train_labels), c(test_data, test_labels)) %<-% imdb
+
+#Loading in variables normally
+imdb <- dataset_imdb(num_words = 10000)
+#Num_words gives us the 10,000 most frequenlty occuring words
+train_data <-imdb$train$x 
+train_labels <-imdb$train$y 
+test_data <- imdb$test$x 
+test_labels <- imdb$test$y
+
+#Look at the data and labels
+str(train_data[[1]])
+train_labels[[3]]
+
+#No word go over the 10,000 mark
+max(sapply(train_data, max))
+
+#Need to transform our data to fit te NN. NNs can't have a list of integers fed into it
+#Turn lists into tensors by in this case encode lists into vectors of 0s and 1s
+vectorize_sequences <- function(sequences, dimension = 10000) {
+results <- matrix(0, nrow = length(sequences), ncol = dimension) 
+for (i in 1:length(sequences)) {
+#Sets specific indices of results[i] to 1s
+results[i, sequences[[i]]] <- 1
+results
+  }
+}
+x_train <- vectorize_sequences(train_data) 
+x_test <- vectorize_sequences(test_data)
+y_train <- as.numeric(train_labels) 
+y_test <- as.numeric(test_labels)
+
+#Our Model
+model <- keras_model_sequential() %>%
+layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>% 
+layer_dense(units = 16, activation = "relu") %>%
+layer_dense(units = 1, activation = "sigmoid")
+
+#Fit using rmsprop optimizer. All these steps are passed as strings
+model %>% compile(
+optimizer = "rmsprop",
+loss = "binary_crossentropy",
+metrics = c("accuracy") 
+)
+
+#Sometimes may need to configure the parameters of your optimizer
+model %>% compile(
+optimizer = optimizer_rmsprop(lr=0.001), loss = "binary_crossentropy",
+metrics = c("accuracy")
+)
+
+
+#Sometimes may need to use custom loss function or metrics
+model %>% compile(
+optimizer = optimizer_rmsprop(lr = 0.001), loss = loss_binary_crossentropy,
+metrics = metric_binary_accuracy
+)
+
+#In order to monitor during training the accuracy of the model on data it has never seen before, you’ll create a validation set by setting apart 10,000 samples from the original training data.
+val_indices <- 1:10000
+x_val <- x_train[val_indices,] 
+partial_x_train <- x_train[-val_indices,] 
+y_val <- y_train[val_indices] 
+partial_y_train <- y_train[-val_indices]
+
+#Now validate and fit the model
+model %>% compile(
+optimizer = "rmsprop",
+loss = "binary_crossentropy", metrics = c("accuracy")
+)
+history <- model %>% fit(
+partial_x_train, 
+partial_y_train,
+epochs = 20,
+batch_size = 512)
+validation_data = list(x_val, y_val)
+
+
+#Take a look at the history
+str(history)
+plot(history)
+
+#Train a new model from scratch to test against our other one
+model <- keras_model_sequential() %>%
+layer_dense(units = 16, activation = "relu", input_shape = c(10000)) %>% layer_dense(units = 16, activation = "relu") %>%
+layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+optimizer = "rmsprop",
+loss = "binary_crossentropy", metrics = c("accuracy")
+)
+
+model %>% fit(x_train, y_train, epochs = 4, batch_size = 512) 
+results <- model %>% evaluate(x_test, y_test)
+results
+
+#Now we can use the fit model to predict
+model %>% predict(x_test[1:10,])
+```
